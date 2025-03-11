@@ -1,0 +1,66 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+#map {
+    height: 100vh; /* Haritayı tam ekran kaplat */
+}
+
+/* Talimatları tamamen gizle */
+.leaflet-draw-tooltip {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+/* Çizim araçları simgeleri */
+.leaflet-draw-toolbar a {
+    background-image: none !important;
+    font-family: FontAwesome;
+    font-size: 16px;
+    line-height: 30px;
+}
+
+/* Özel ikonlar */
+.leaflet-draw-toolbar a.leaflet-draw-draw-polygon:before {
+    content: "\f5ee"; /* Polygon simgesi */
+}
+
+.leaflet-draw-toolbar a.leaflet-draw-edit-edit:before {
+    content: "\f044"; /* Düzenleme simgesi */
+}
+
+.leaflet-draw-toolbar a.leaflet-draw-edit-remove:before {
+    content: "\f1f8"; /* Silme simgesi */
+}
+
+/* "Finish", "Delete last point", "Cancel" butonlarını belirginleştir */
+.leaflet-draw-actions a {
+    font-size: 10px !important;
+    color: black !important; /* Siyah yazı */
+    background-color: white !important; /* Beyaz arka plan */
+    padding: 8px 12px !important; /* Butonları genişlet */
+    border: 1px solid black !important; /* Siyah çerçeve */
+    border-radius: 4px !important; /* Köşeleri yuvarla */
+    font-weight: bold !important; /* Kalın font */
+    text-decoration: none !important; /* Link altı çizgisini kaldır */
+    display: inline-block; /* Daha güzel buton hizalama */
+    margin: 2px; /* Butonları ayır */
+}
+
+/* Butonlara hover efekti ekle */
+.leaflet-draw-actions a:hover {
+    background-color: #f0f0f0 !important; /* Fare üzerine gelince arka plan rengi */
+    border-color: #555 !important; /* Hafif koyu çerçeve */
+}
+
+/* Polygon noktalarını (vertex) mavi yuvarlak yap */
+.leaflet-editing-icon {
+    background-color: blue !important; /* Mavi arka plan */
+    border-radius: 50% !important; /* Yuvarlak hale getir */
+    width: 8px !important; /* Küçük yuvarlak nokta */
+    height: 8px !important;
+    border: 2px solid white !important; /* Beyaz çerçeve */
+}
