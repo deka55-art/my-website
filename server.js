@@ -1,62 +1,67 @@
 const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
-const cors = require('cors'); // CORS hatalarını önlemek için
-
+const cors = require('cors');
 const app = express();
-const port = process.env.PORT || 10000;  // Render için doğru port ayarı
+const port = process.env.PORT || 3000;
 
-// Middleware
+// SQLite veritabanı bağlantısı
+const db = new sqlite3.Database('./parcels.db');
+
+// Tablo oluştur (eğer yoksa)
+db.serialize(() => {
+    db.run("CREATE TABLE IF NOT EXISTS parcels (id INTEGER PRIMARY KEY AUTOINCREMENT, parsel_no TEXT, koordinatlar TEXT, bitki TEXT, sulama TEXT, proje_sahibi TEXT, projedurumu TEXT, proje_tarihi TEXT, Arazi_Egimi TEXT)");
+});
+
+// Middleware: JSON verilerini işlemek için
 app.use(express.json());
-app.use(cors()); // CORS hatalarını engellemek için
+app.use(cors());
 
-// ✅ API'nin Çalıştığını Test Etmek İçin
-app.get('/api/test', (req, res) => {
-  res.json({ message: "API Çalışıyor!" });
-});
-
-// ✅ SQLite Veritabanı Bağlantısı
-const db = new sqlite3.Database('./parcels.db', (err) => {
-  if (err) {
-    console.error('SQLite bağlantı hatası:', err.message);
-  } else {
-    console.log('SQLite veritabanına bağlandı.');
-  }
-});
-
-// ✅ Parsel Kaydetme Endpoint’i
-app.post('/api/parcels', (req, res) => {
-  console.log("Gelen Veri:", req.body); // Gelen veriyi kontrol et
-  const { parselNo, bitkiTuru, sulamaDurumu, projeSahibi, projeDurumu, projeBitisTarihi, arazıEğimi } = req.body;
-  const query = `
-    INSERT INTO parcels (parselNo, bitkiTuru, sulamaDurumu, projeSahibi, projeDurumu, projeBitisTarihi, arazıEğimi)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-  db.run(query, [parselNo, bitkiTuru, sulamaDurumu, projeSahibi, projeDurumu, projeBitisTarihi, arazıEğimi], function(err) {
-    if (err) {
-      console.error("Veritabanına yazma hatası:", err.message);
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ message: "Parsel bilgisi kaydedildi!", id: this.lastID });
-  });
-});
-
-// ✅ Parsel Verilerini Getirme Endpoint’i
-app.get('/api/parcels', (req, res) => {
-  db.all('SELECT * FROM parcels', (err, rows) => {
-    if (err) {
-      console.error("Veri çekme hatası:", err.message);
-      return res.status(500).json({ error: err.message });
-    }
-    console.log("API'den Dönen Veriler:", rows);
-    res.json(rows);
-  });
-});
-
-// ✅ Statik Dosyaları Sun (Bu en altta olmalı!)
+// Statik dosyaları sun (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Sunucuyu Başlat
+// Ana route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Parsel verilerini getir
+app.get('/api/parcels', (req, res) => {
+    db.all("SELECT * FROM parcels", [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json(rows);
+    });
+});
+
+// Yeni parsel ekle
+app.post('/api/parcels', (req, res) => {
+    const { parsel_no, koordinatlar, bitki, sulama, proje_sahibi, projedurumu, proje_tarihi, Arazi_Egimi } = req.body;
+    const sql = "INSERT INTO parcels (parsel_no, koordinatlar, bitki, sulama, proje_sahibi, projedurumu, proje_tarihi, Arazi_Egimi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    db.run(sql, [parsel_no, JSON.stringify(koordinatlar), bitki, sulama, proje_sahibi, projedurumu, proje_tarihi, Arazi_Egimi], function(err) {
+        if (err) {
+            res.status(400).json({ error: err.message });
+            return;
+        }
+        res.status(201).json({ id: this.lastID });
+    });
+});
+
+// Parsel sil
+app.delete('/api/parcels/:id', (req, res) => {
+    const id = req.params.id;
+    db.run("DELETE FROM parcels WHERE id = ?", id, function(err) {
+        if (err) {
+            res.status(400).json({ error: err.message });
+            return;
+        }
+        res.status(204).send();
+    });
+});
+
+// Sunucuyu başlat
 app.listen(port, () => {
-  console.log(`✅ Sunucu http://localhost:${port} adresinde çalışıyor...`);
+  console.log(`Sunucu http://localhost:${port} adresinde çalışıyor...`);
 });

@@ -1,15 +1,14 @@
 // Haritayı oluştur
 var map = L.map('map').setView([40.9769, 27.5126], 13);
-// Temel harita katmanını ekle (Uydu haritası)
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: '© Esri'
 }).addTo(map);
-// Çizim katmanını oluştur
+
 var drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
-// Çizim araçlarını ekle
+
 var drawControl = new L.Control.Draw({
-    edit: false, // Edit ve Delete butonları kaldırıldı
+    edit: false,
     draw: {
         polygon: true,
         polyline: false,
@@ -19,28 +18,41 @@ var drawControl = new L.Control.Draw({
     }
 });
 map.addControl(drawControl);
-// Parselleri saklamak için boş dizi
-var parselData = [];
-// Sayfa yüklendiğinde kayıtlı parselleri getir
-window.onload = function () {
-    var savedParseller = localStorage.getItem("parseller");
-    if (savedParseller) {
-        parselData = JSON.parse(savedParseller);
-        parselData.forEach(function (parsel, index) {
-            var polygon = L.polygon(parsel.koordinatlar, { color: 'blue', fillColor: 'pink', fillOpacity: 0.5 }).addTo(drawnItems);
-            polygon.bindPopup(generateReadonlyPopupContent(parsel, index)); // Sadece okunabilir popup
+
+// Parselleri API'den getir
+const getParcels = async () => {
+    try {
+        const response = await fetch('/api/parcels');
+        const parcels = await response.json();
+        parcels.forEach((parsel, index) => {
+            var polygon = L.polygon(JSON.parse(parsel.koordinatlar), { color: 'blue', fillColor: 'pink', fillOpacity: 0.5 }).addTo(drawnItems);
+            polygon.bindPopup(generateReadonlyPopupContent(parsel, index));
         });
-        console.log("Kayıtlı Parseller Yüklendi!", parselData);
+    } catch (error) {
+        console.error("API'den veri çekerken hata oluştu:", error);
     }
 };
-// Çizim tamamlandığında boş form aç
-map.on(L.Draw.Event.CREATED, function (event) {
-    var layer = event.layer;
-    drawnItems.addLayer(layer);
-    // Yeni bir polygon için boş form göster
-    var newIndex = parselData.length;
-    layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
-});
+
+// Sayfa yüklendiğinde parselleri getir
+window.onload = async function () {
+    await getParcels();
+};
+
+// Yeni parsel ekle
+const saveParcel = async (parsel) => {
+    try {
+        const response = await fetch('/api/parcels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsel),
+        });
+        const result = await response.json();
+        console.log("API Yanıtı:", result);
+    } catch (error) {
+        console.error("API'ye veri kaydederken hata oluştu:", error);
+    }
+};
+
 // Parsel bilgilerini kaydetme
 function saveParselInfo(layer, index) {
     var parsel_no = document.getElementById("parsel_no").value;
@@ -61,16 +73,20 @@ function saveParselInfo(layer, index) {
         proje_tarihi: proje_tarihi,
         Arazi_Egimi: Arazi_Egimi
     };
-    if (parselData[index]) {
-        parselData[index] = parselBilgi; // Güncelleme
-    } else {
-        parselData.push(parselBilgi); // Yeni kayıt
-    }
-    localStorage.setItem("parseller", JSON.stringify(parselData));
-    console.log("Parsel Kaydedildi: ", parselBilgi);
-    // Sayfayı yenilemeden popup içeriğini güncelle
+    saveParcel(parselBilgi);
     layer.bindPopup(generateReadonlyPopupContent(parselBilgi, index)).openPopup();
 }
+
+// Parsel sil
+const deleteParcel = async (index) => {
+    try {
+        await fetch(`/api/parcels/${index}`, { method: 'DELETE' });
+        drawnItems.removeLayer(drawnItems.getLayers()[index]);
+    } catch (error) {
+        console.error("Parsel silinirken hata oluştu:", error);
+    }
+};
+
 // **📌 1: İlk Açılan (Düzenleme Modu) Popup İçeriği**
 function generateEditablePopupContent(parsel, layer, index) {
     return '<b>Parsel Bilgisi</b><br>' +
@@ -83,6 +99,7 @@ function generateEditablePopupContent(parsel, layer, index) {
         '<b>Arazi Eğimi:</b> <input type="text" id="Arazi_Egimi" value="' + (parsel?.Arazi_Egimi || '') + '"><br>' +
         '<button type="button" onclick="saveParselInfo(drawnItems.getLayers()[' + index + '], ' + index + ')">Kaydet</button>';
 }
+
 // **📌 2: Kaydettikten Sonra (Sadece Okunabilir) Popup İçeriği**
 function generateReadonlyPopupContent(parsel, index) {
     return '<b>Parsel Bilgisi</b><br>' +
@@ -96,20 +113,11 @@ function generateReadonlyPopupContent(parsel, index) {
         '<button type="button" onclick="editParselInfo(' + index + ')">Düzenle</button>' +
         '<button type="button" onclick="deleteParsel(' + index + ')">Sil</button>';
 }
+
 // Düzenleme moduna geç
 function editParselInfo(index) {
     var parsel = parselData[index];
     var layer = drawnItems.getLayers()[index];
     // Güncellenmiş düzenleme formunu aç
     layer.bindPopup(generateEditablePopupContent(parsel, layer, index)).openPopup();
-}
-// Polygon'u silme fonksiyonu
-function deleteParsel(index) {
-    var layers = drawnItems.getLayers();
-    if (layers[index]) {
-        drawnItems.removeLayer(layers[index]); // Haritadan kaldır
-        parselData.splice(index, 1); // Diziden çıkar
-        localStorage.setItem("parseller", JSON.stringify(parselData)); // LocalStorage güncelle
-        console.log("Parsel Silindi:", index);
-    }
 }
