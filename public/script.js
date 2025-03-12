@@ -82,13 +82,23 @@ function saveParselInfo(layer, index) {
 // Parsel sil
 const deleteParcel = async (index) => {
     try {
-        await fetch(`/api/parcels/${index}`, { method: 'DELETE' });
-        const layers = drawnItems.getLayers();
-        if (layers[index]) {
-            drawnItems.removeLayer(layers[index]);
-            console.log("Parsel silindi:", index);
+        const response = await fetch(`/api/parcels/${index}`, { method: 'DELETE' });
+
+        // Eğer silme işlemi başarılıysa
+        if (response.ok) {
+            // Haritadan polygon'u kaldır
+            const layers = drawnItems.getLayers();
+            if (layers[index]) {
+                drawnItems.removeLayer(layers[index]);
+                console.log("Parsel silindi:", index);
+            } else {
+                console.error("Silinecek parsel bulunamadı:", index);
+            }
+
+            // Haritayı yeniden yükle
+            await getParcels();
         } else {
-            console.error("Silinecek parsel bulunamadı:", index);
+            console.error("API'den hata yanıtı:", await response.text());
         }
     } catch (error) {
         console.error("Parsel silinirken hata oluştu:", error);
