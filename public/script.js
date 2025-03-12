@@ -121,3 +121,13 @@ function editParselInfo(index) {
     // Güncellenmiş düzenleme formunu aç
     layer.bindPopup(generateEditablePopupContent(parsel, layer, index)).openPopup();
 }
+
+// Çizim tamamlandığında polygon'u haritaya ekle
+map.on(L.Draw.Event.CREATED, function (event) {
+    var layer = event.layer; // Çizilen şekli al
+    drawnItems.addLayer(layer); // Şekli haritaya ekle
+
+    // Yeni bir polygon için boş form göster
+    var newIndex = drawnItems.getLayers().length - 1; // Yeni indeksi al
+    layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
+});
