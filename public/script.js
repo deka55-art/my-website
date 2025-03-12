@@ -35,6 +35,7 @@ const getParcels = async () => {
             polygonIds.push(parsel.id); // ID'yi diziye ekle
             polygon.bindPopup(generateReadonlyPopupContent(parsel, index));
         });
+        console.log("Parseller yüklendi. polygonIds:", polygonIds); // Konsola polygonIds dizisini yazdır
     } catch (error) {
         console.error("API'den veri çekerken hata oluştu:", error);
     }
@@ -106,6 +107,10 @@ const deleteParcel = async (index) => {
                 console.error("Haritada silinecek parsel bulunamadı:", index);
             }
 
+            // polygonIds dizisinden silinen ID'yi kaldır
+            polygonIds.splice(index, 1);
+            console.log("polygonIds dizisi güncellendi:", polygonIds);
+
             // Haritayı yeniden yükle
             await getParcels();
         } else {
@@ -159,7 +164,9 @@ map.on(L.Draw.Event.CREATED, function (event) {
 
     // Yeni bir polygon için boş form göster
     var newIndex = drawnItems.getLayers().length - 1; // Yeni indeksi al
-    layer._id = newIndex; // Polygon'a bir ID ata
-    polygonIds.push(newIndex); // ID'yi diziye ekle
+    var newId = polygonIds.length > 0 ? Math.max(...polygonIds) + 1 : 0; // Yeni ID'yi belirle
+    layer._id = newId; // Polygon'a bir ID ata
+    polygonIds.push(newId); // ID'yi diziye ekle
+    console.log("Yeni polygon çizildi. ID:", newId); // Konsola yeni ID'yi yazdır
     layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
 });
