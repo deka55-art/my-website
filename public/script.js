@@ -24,8 +24,10 @@ const getParcels = async () => {
     try {
         const response = await fetch('/api/parcels');
         const parcels = await response.json();
+        drawnItems.clearLayers(); // Önceki polygon'ları temizle
         parcels.forEach((parsel, index) => {
             var polygon = L.polygon(JSON.parse(parsel.koordinatlar), { color: 'blue', fillColor: 'pink', fillOpacity: 0.5 }).addTo(drawnItems);
+            polygon._id = index; // Polygon'a bir ID ata
             polygon.bindPopup(generateReadonlyPopupContent(parsel, index));
         });
     } catch (error) {
@@ -81,7 +83,13 @@ function saveParselInfo(layer, index) {
 const deleteParcel = async (index) => {
     try {
         await fetch(`/api/parcels/${index}`, { method: 'DELETE' });
-        drawnItems.removeLayer(drawnItems.getLayers()[index]);
+        const layers = drawnItems.getLayers();
+        if (layers[index]) {
+            drawnItems.removeLayer(layers[index]);
+            console.log("Parsel silindi:", index);
+        } else {
+            console.error("Silinecek parsel bulunamadı:", index);
+        }
     } catch (error) {
         console.error("Parsel silinirken hata oluştu:", error);
     }
@@ -111,7 +119,7 @@ function generateReadonlyPopupContent(parsel, index) {
         '<b>Proje Bitiş Tarihi:</b> ' + parsel.proje_tarihi + '<br>' +
         '<b>Arazi Eğimi:</b> ' + parsel.Arazi_Egimi + '<br>' +
         '<button type="button" onclick="editParselInfo(' + index + ')">Düzenle</button>' +
-        '<button type="button" onclick="deleteParsel(' + index + ')">Sil</button>';
+        '<button type="button" onclick="deleteParcel(' + index + ')">Sil</button>';
 }
 
 // Düzenleme moduna geç
@@ -129,5 +137,6 @@ map.on(L.Draw.Event.CREATED, function (event) {
 
     // Yeni bir polygon için boş form göster
     var newIndex = drawnItems.getLayers().length - 1; // Yeni indeksi al
+    layer._id = newIndex; // Polygon'a bir ID ata
     layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
 });
