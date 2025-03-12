@@ -1,3 +1,6 @@
+// Polygon ID'lerini saklamak için bir dizi
+let polygonIds = [];
+
 // Haritayı oluştur
 var map = L.map('map').setView([40.9769, 27.5126], 13);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -25,9 +28,11 @@ const getParcels = async () => {
         const response = await fetch('/api/parcels');
         const parcels = await response.json();
         drawnItems.clearLayers(); // Önceki polygon'ları temizle
+        polygonIds = []; // ID'leri temizle
         parcels.forEach((parsel, index) => {
             var polygon = L.polygon(JSON.parse(parsel.koordinatlar), { color: 'blue', fillColor: 'pink', fillOpacity: 0.5 }).addTo(drawnItems);
-            polygon._id = index; // Polygon'a bir ID ata
+            polygon._id = parsel.id; // Polygon'a bir ID ata
+            polygonIds.push(parsel.id); // ID'yi diziye ekle
             polygon.bindPopup(generateReadonlyPopupContent(parsel, index));
         });
     } catch (error) {
@@ -82,10 +87,11 @@ function saveParselInfo(layer, index) {
 // Parsel sil
 const deleteParcel = async (index) => {
     try {
-        console.log("Silinecek parsel ID'si:", index); // Silinecek ID'yi konsola yaz
+        const id = polygonIds[index]; // Doğru ID'yi al
+        console.log("Silinecek parsel ID'si:", id); // Silinecek ID'yi konsola yaz
 
         // API'ye DELETE isteği gönder
-        const response = await fetch(`/api/parcels/${index}`, { method: 'DELETE' });
+        const response = await fetch(`/api/parcels/${id}`, { method: 'DELETE' });
 
         // API yanıtını kontrol et
         if (response.ok) {
@@ -154,5 +160,6 @@ map.on(L.Draw.Event.CREATED, function (event) {
     // Yeni bir polygon için boş form göster
     var newIndex = drawnItems.getLayers().length - 1; // Yeni indeksi al
     layer._id = newIndex; // Polygon'a bir ID ata
+    polygonIds.push(newIndex); // ID'yi diziye ekle
     layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
 });
