@@ -1,90 +1,31 @@
 // Polygon ID'lerini saklamak için bir dizi
 let polygonIds = [];
 
-// Harita ve çizim kontrolü değişkenleri
-let map;
-let drawnItems;
-let drawControl;
+// Haritayı oluştur
+var map = L.map('map').setView([40.9769, 27.5126], 13);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri'
+}).addTo(map);
 
-// Haritayı başlatma fonksiyonu
-function initializeMap() {
-    map = L.map('map').setView([40.9769, 27.5126], 13);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri'
-    }).addTo(map);
+var drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
 
-    drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
-
-    // Çizim kontrolünü oluştur (başlangıçta devre dışı)
-    drawControl = new L.Control.Draw({
-        edit: {
-            featureGroup: drawnItems
-        },
-        draw: {
-            polygon: false, // Başlangıçta çizim devre dışı
-            polyline: false,
-            rectangle: false,
-            circle: false,
-            marker: false
-        }
-    });
-    map.addControl(drawControl);
-
-    // Çizim tamamlandığında polygon'u haritaya ekle
-    map.on(L.Draw.Event.CREATED, function (event) {
-        var layer = event.layer; // Çizilen şekli al
-        drawnItems.addLayer(layer); // Şekli haritaya ekle
-
-        // Yeni bir polygon için boş form göster
-        var newIndex = drawnItems.getLayers().length - 1; // Yeni indeksi al
-        var newId = polygonIds.length > 0 ? Math.max(...polygonIds) + 1 : 0; // Yeni ID'yi belirle
-        layer._id = newId; // Polygon'a bir ID ata
-        polygonIds.push(newId); // ID'yi diziye ekle
-        console.log("Yeni polygon çizildi. ID:", newId); // Konsola yeni ID'yi yazdır
-        layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
-    });
-}
-
-// Giriş yap butonu
-document.getElementById("loginForm").addEventListener("submit", async function(event) {
-    event.preventDefault();
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-
-    // Basit giriş kontrolü (örnek: kullanıcı adı "admin", şifre "bae123")
-    if (username === "admin" && password === "bae123") {
-        // Giriş başarılı
-        alert("Giriş başarılı!");
-        document.getElementById("loginFormContainer").style.display = "none"; // Giriş formunu gizle
-        document.getElementById("map").style.display = "block"; // Haritayı göster
-
-        // Haritayı başlat
-        initializeMap();
-
-        // Çizim özelliklerini aktif et
-        drawControl.setDrawingOptions({
-            polygon: true, // Çizimi aktif et
-            polyline: false,
-            rectangle: false,
-            circle: false,
-            marker: false
-        });
-
-        // Parselleri yükle
-        await getParcels();
-    } else {
-        alert("Geçersiz kullanıcı adı veya şifre!");
+var drawControl = new L.Control.Draw({
+    edit: false,
+    draw: {
+        polygon: true,
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        marker: false
     }
 });
+map.addControl(drawControl);
 
 // Parselleri API'den getir
 const getParcels = async () => {
     try {
-        const token = localStorage.getItem("token");
-        const response = await fetch('/api/parcels', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const response = await fetch('/api/parcels');
         const parcels = await response.json();
         drawnItems.clearLayers(); // Önceki polygon'ları temizle
         polygonIds = []; // ID'leri temizle
@@ -98,6 +39,11 @@ const getParcels = async () => {
     } catch (error) {
         console.error("API'den veri çekerken hata oluştu:", error);
     }
+};
+
+// Sayfa yüklendiğinde parselleri getir
+window.onload = async function () {
+    await getParcels();
 };
 
 // Yeni parsel ekle
@@ -210,3 +156,17 @@ function editParselInfo(index) {
     // Güncellenmiş düzenleme formunu aç
     layer.bindPopup(generateEditablePopupContent(parsel, layer, index)).openPopup();
 }
+
+// Çizim tamamlandığında polygon'u haritaya ekle
+map.on(L.Draw.Event.CREATED, function (event) {
+    var layer = event.layer; // Çizilen şekli al
+    drawnItems.addLayer(layer); // Şekli haritaya ekle
+
+    // Yeni bir polygon için boş form göster
+    var newIndex = drawnItems.getLayers().length - 1; // Yeni indeksi al
+    var newId = polygonIds.length > 0 ? Math.max(...polygonIds) + 1 : 0; // Yeni ID'yi belirle
+    layer._id = newId; // Polygon'a bir ID ata
+    polygonIds.push(newId); // ID'yi diziye ekle
+    console.log("Yeni polygon çizildi. ID:", newId); // Konsola yeni ID'yi yazdır
+    layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
+});
