@@ -51,14 +51,18 @@ app.post('/api/parcels', (req, res) => {
 
 // Parsel sil
 app.delete('/api/parcels/:id', (req, res) => {
-    const id = req.params.id;
-    db.run("DELETE FROM parcels WHERE id = ?", id, function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        res.status(204).send();
-    });
+  const id = req.params.id;
+  console.log("Silinecek parsel ID'si:", id); // Silinecek ID'yi konsola yaz
+
+  db.run("DELETE FROM parcels WHERE id = ?", id, function(err) {
+      if (err) {
+          console.error("Veritabanı hatası:", err.message); // Hata mesajını konsola yaz
+          res.status(400).json({ error: err.message });
+          return;
+      }
+      console.log("Parsel veritabanından silindi:", id); // Başarılı silme işlemini konsola yaz
+      res.status(204).send(); // Başarılı yanıt (No Content)
+  });
 });
 
 // Sunucuyu başlat
