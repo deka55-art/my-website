@@ -19,40 +19,18 @@ var drawControl = new L.Control.Draw({
     }
 });
 map.addControl(drawControl);
-
 // Parselleri saklamak için boş dizi
 var parselData = [];
-
-// ✅ **API'den Parsel Verilerini Getirme Fonksiyonu**
-const getParcels = async () => {
-    try {
-        const response = await fetch('/api/parcels'); // API'ye istek at
-        const parcels = await response.json(); // JSON formatında veriyi al
-        console.log("API'den Gelen Parseller:", parcels);
-
-        // Haritada göstermek için gelen verileri kullan
-        parcels.forEach((parsel, index) => {
-            var polygon = L.polygon(parsel.koordinatlar, { color: 'blue', fillColor: 'pink', fillOpacity: 0.5 }).addTo(drawnItems);
-            polygon.bindPopup(generateReadonlyPopupContent(parsel, index));
-        });
-
-    } catch (error) {
-        console.error("API'den veri çekerken hata oluştu:", error);
-    }
-};
-
-// ✅ **Sayfa Yüklendiğinde API'den Veri Çek ve LocalStorage'ı Kontrol Et**
-window.onload = async function () {
-    await getParcels(); // 📌 **Önce API'den verileri çek**
-
-    var savedParseller = localStorage.getItem("parseller"); // 📌 Sonra LocalStorage kontrol et
+// Sayfa yüklendiğinde kayıtlı parselleri getir
+window.onload = function () {
+    var savedParseller = localStorage.getItem("parseller");
     if (savedParseller) {
         parselData = JSON.parse(savedParseller);
         parselData.forEach(function (parsel, index) {
             var polygon = L.polygon(parsel.koordinatlar, { color: 'blue', fillColor: 'pink', fillOpacity: 0.5 }).addTo(drawnItems);
             polygon.bindPopup(generateReadonlyPopupContent(parsel, index)); // Sadece okunabilir popup
         });
-        console.log("LocalStorage'dan Parseller Yüklendi!", parselData);
+        console.log("Kayıtlı Parseller Yüklendi!", parselData);
     }
 };
 // Çizim tamamlandığında boş form aç
@@ -63,23 +41,6 @@ map.on(L.Draw.Event.CREATED, function (event) {
     var newIndex = parselData.length;
     layer.bindPopup(generateEditablePopupContent(null, layer, newIndex)).openPopup();
 });
-
-// API'ye veri kaydetme
-
-const saveParcel = async (parselNo, bitkiTuru, sulamaDurumu, projeSahibi, projeDurumu, projeBitisTarihi, arazıEğimi) => {
-    console.log("API'ye Gönderilen Veri:", { parselNo, bitkiTuru, sulamaDurumu, projeSahibi, projeDurumu, projeBitisTarihi, arazıEğimi });
-
-    const response = await fetch('/api/parcels', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parselNo, bitkiTuru, sulamaDurumu, projeSahibi, projeDurumu, projeBitisTarihi, arazıEğimi }),
-    });
-
-    const result = await response.json();
-    console.log("API Yanıtı:", result);
-};
-
-
 // Parsel bilgilerini kaydetme
 function saveParselInfo(layer, index) {
     var parsel_no = document.getElementById("parsel_no").value;
