@@ -22,10 +22,39 @@ var drawControl = new L.Control.Draw({
 });
 map.addControl(drawControl);
 
+// Giriş yap butonu
+document.getElementById("loginForm").addEventListener("submit", async function(event) {
+    event.preventDefault();
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    // Giriş isteği gönder
+    const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+    if (data.token) {
+        // Token'ı localStorage'a kaydet
+        localStorage.setItem("token", data.token);
+        alert("Giriş başarılı!");
+        document.getElementById("loginFormContainer").style.display = "none"; // Giriş formunu gizle
+        document.getElementById("map").style.display = "block"; // Haritayı göster
+        await getParcels(); // Parselleri yükle
+    } else {
+        alert("Giriş başarısız!");
+    }
+});
+
 // Parselleri API'den getir
 const getParcels = async () => {
     try {
-        const response = await fetch('/api/parcels');
+        const token = localStorage.getItem("token");
+        const response = await fetch('/api/parcels', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         const parcels = await response.json();
         drawnItems.clearLayers(); // Önceki polygon'ları temizle
         polygonIds = []; // ID'leri temizle
@@ -41,10 +70,7 @@ const getParcels = async () => {
     }
 };
 
-// Sayfa yüklendiğinde parselleri getir
-window.onload = async function () {
-    await getParcels();
-};
+// Diğer fonksiyonlar (saveParcel, deleteParcel, generateEditablePopupContent, generateReadonlyPopupContent, editParselInfo) aynı kalacak...
 
 // Yeni parsel ekle
 const saveParcel = async (parsel) => {

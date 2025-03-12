@@ -16,7 +16,18 @@
 </head>
 <body>
 
-    <div id="map"></div>
+    <!-- Giriş Formu -->
+    <div id="loginFormContainer" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+        <h2>Giriş Yap</h2>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Kullanıcı Adı" required><br><br>
+            <input type="password" id="password" placeholder="Şifre" required><br><br>
+            <button type="submit">Giriş Yap</button>
+        </form>
+    </div>
+
+    <!-- Harita (Giriş yapana kadar gizli) -->
+    <div id="map" style="display: none;"></div>
     
     <script src="script.js"></script>
 
