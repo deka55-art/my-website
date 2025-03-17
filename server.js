@@ -8,7 +8,7 @@ const port = process.env.PORT || 3000;
 
 // PostgreSQL bağlantısı
 const client = new Client({
-  connectionString: process.env.bae_parsel, // Render'da otomatik olarak sağlanır
+  connectionString: process.env.DATABASE_URL, // Render'ın sağladığı bağlantı dizesi
   ssl: {
     rejectUnauthorized: false // SSL sertifikasını doğrulama (Render için gerekli)
   }
