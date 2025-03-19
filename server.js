@@ -61,6 +61,9 @@ app.use(cors());
 app.use(session({
   store: new pgSession({
     conString: process.env.DATABASE_URL, // PostgreSQL bağlantı dizesi
+    ssl: {
+      rejectUnauthorized: false // SSL sertifikasını doğrulama
+    },
     tableName: 'user_sessions' // Oturum verilerinin saklanacağı tablo adı
   }),
   secret: process.env.SESSION_SECRET || 'gizli_anahtar', // Oturum şifreleme anahtarı
