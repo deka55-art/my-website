@@ -4,7 +4,7 @@ const path = require('path');
 const { Client } = require('pg'); // PostgreSQL için
 const cors = require('cors');
 const session = require('express-session'); // Oturum yönetimi için
-const bcrypt = require('bcrypt'); // Şifre hash'leme için
+const bcrypt = require('bcryptjs'); // Şifre hash'leme için (bcryptjs kullanılıyor)
 const app = express();
 const port = process.env.PORT || 3000;
 
