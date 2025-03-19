@@ -3,32 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parsel Bilgi Sistemi v2</title>
-    <link rel="icon" href="data:,"> <!-- Favicon hatasını engelle -->
-    <link rel="stylesheet" href="style.css">
-    <!-- Leaflet CSS ve JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- Leaflet Draw Eklentisi -->
-    <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-    <!-- FontAwesome (Simgeler için) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Parsel Kaydetme</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 </head>
 <body>
+    <div id="map" style="height: 600px;"></div>
 
-    <!-- Giriş Formu -->
-    <div id="login-form">
-        <h2>Giriş Yap</h2>
-        <input type="text" id="username" placeholder="Kullanıcı Adı">
-        <input type="password" id="password" placeholder="Şifre">
-        <button onclick="login()">Giriş Yap</button>
-    </div>
+    <script>
+        let map = L.map('map').setView([39.92077, 32.85411], 6); // Türkiye merkezli harita
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    <!-- Harita -->
-    <div id="map"></div>
+        let drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
 
-    <!-- Script -->
-    <script src="script.js"></script>
+        let drawControl = new L.Control.Draw({
+            edit: { featureGroup: drawnItems },
+            draw: {
+                polygon: true,
+                marker: false,
+                circle: false,
+                rectangle: false,
+                polyline: false
+            }
+        });
+        map.addControl(drawControl);
 
+        map.on('draw:created', function (event) {
+            let layer = event.layer;
+            drawnItems.addLayer(layer);
+
+            let coordinates = layer.getLatLngs()[0].map(coord => [coord.lat, coord.lng]); // Koordinatları al
+
+            let popupContent = `
+                <b>Parsel Bilgisi</b><br>
+                <label>Parsel No:</label> <input type="text" id="parsel_no"><br>
+                <label>Bitki Türü:</label> <input type="text" id="bitki"><br>
+                <label>Sulama Durumu:</label> <input type="text" id="sulama"><br>
+                <label>Proje Sahibi:</label> <input type="text" id="proje_sahibi"><br>
+                <label>Proje Durumu:</label> <input type="text" id="projedurumu"><br>
+                <label>Proje Bitiş Tarihi:</label> <input type="date" id="proje_tarihi"><br>
+                <label>Arazi Eğimi:</label> <input type="text" id="arazi_egimi"><br>
+                <button onclick="saveParsel(${JSON.stringify(coordinates)})">Kaydet</button>
+            `;
+
+            layer.bindPopup(popupContent).openPopup();
+        });
+
+        function saveParsel(coordinates) {
+            let parsel_no = document.getElementById("parsel_no").value;
+            let bitki = document.getElementById("bitki").value;
+            let sulama = document.getElementById("sulama").value;
+            let proje_sahibi = document.getElementById("proje_sahibi").value;
+            let projedurumu = document.getElementById("projedurumu").value;
+            let proje_tarihi = document.getElementById("proje_tarihi").value;
+            let arazi_egimi = document.getElementById("arazi_egimi").value;
+
+            let data = {
+                parsel_no,
+                koordinatlar: JSON.stringify(coordinates), // Koordinatları JSON formatında kaydediyoruz
+                bitki,
+                sulama,
+                proje_sahibi,
+                projedurumu,
+                proje_tarihi,
+                Arazi_Egimi: arazi_egimi
+            };
+
+            console.log("Gönderilen Veri:", data);
+
+            fetch('/api/parcels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Başarıyla kaydedildi:", data);
+                alert("Parsel başarıyla kaydedildi!");
+            })
+            .catch(error => console.error("Hata:", error));
+        }
+    </script>
 </body>
 </html>

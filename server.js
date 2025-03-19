@@ -88,15 +88,19 @@ app.get('/', (req, res) => {
 });
 
 // Kullanıcı girişi
+// 📌 Kullanıcı girişi (Login API)
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
+
   try {
     const result = await client.query('SELECT * FROM users WHERE username = $1', [username]);
+
     if (result.rows.length > 0) {
       const user = result.rows[0];
       const validPassword = await bcrypt.compare(password, user.password);
+
       if (validPassword) {
-        req.session.user = { id: user.id, username: user.username, role: user.role }; // Oturum başlat
+        req.session.user = { id: user.id, username: user.username, role: user.role }; // Daha güvenli session kaydı
         res.json({ role: user.role });
       } else {
         res.status(401).json({ error: 'Geçersiz şifre' });
@@ -110,16 +114,23 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+
+
 // Parsel verilerini getir
 app.get('/api/parcels', async (req, res) => {
   try {
     const result = await client.query('SELECT * FROM parcels');
-    res.json(result.rows);
+    const formattedResults = result.rows.map(row => ({
+      ...row,
+      koordinatlar: JSON.parse(row.koordinatlar) // Koordinatları JSON formatına çeviriyoruz
+    }));
+    res.json(formattedResults);
   } catch (err) {
     console.error('❌ Parsel verileri getirilirken hata:', err);
     res.status(500).json({ error: 'Veritabanı hatası' });
   }
 });
+
 
 // Yeni parsel ekle (Sadece admin)
 app.post('/api/parcels', async (req, res) => {
