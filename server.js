@@ -1,27 +1,28 @@
 require('dotenv').config(); // .env dosyasını yükler
 const express = require('express');
 const path = require('path');
-const { Client } = require('pg'); // PostgreSQL için
+const { Client } = require('pg'); // PostgreSQL bağlantısı için
 const cors = require('cors');
 const session = require('express-session'); // Oturum yönetimi için
-const bcrypt = require('bcryptjs'); // Şifre hash'leme için (bcryptjs kullanılıyor)
+const pgSession = require('connect-pg-simple')(session); // PostgreSQL tabanlı session store
+const bcrypt = require('bcryptjs'); // Şifre hash'leme için
 const app = express();
 const port = process.env.PORT || 3000;
 
 // PostgreSQL bağlantısı
 const client = new Client({
-  connectionString: process.env.DATABASE_URL, // Render'ın sağladığı bağlantı dizesi
+  connectionString: process.env.DATABASE_URL, // Render'daki PostgreSQL URL
   ssl: {
-    rejectUnauthorized: false // SSL sertifikasını doğrulama (Render için gerekli)
+    rejectUnauthorized: false // Render için SSL doğrulaması kapatıldı
   }
 });
 
 // Veritabanına bağlan
 client.connect()
   .then(() => {
-    console.log('PostgreSQL veritabanına bağlanıldı.');
+    console.log('✅ PostgreSQL bağlantısı başarılı.');
 
-    // Tabloları oluştur (eğer yoksa)
+    // Gerekli tabloları oluştur
     return client.query(`
       CREATE TABLE IF NOT EXISTS parcels (
         id SERIAL PRIMARY KEY,
@@ -39,39 +40,49 @@ client.connect()
         id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user' -- 'user' veya 'admin'
+        role TEXT NOT NULL DEFAULT 'user'
+      );
+
+      CREATE TABLE IF NOT EXISTS session (
+        sid VARCHAR NOT NULL PRIMARY KEY,
+        sess JSON NOT NULL,
+        expire TIMESTAMP(6) NOT NULL
       );
     `);
   })
   .then(() => {
-    console.log('Tablolar oluşturuldu veya zaten var.');
+    console.log('✅ Tablolar oluşturuldu veya zaten var.');
     return createInitialUsers(); // Kullanıcı hesaplarını oluştur
   })
   .catch(err => {
-    console.error('PostgreSQL bağlantı veya tablo oluşturma hatası:', err);
-    process.exit(1); // Hata durumunda uygulamayı sonlandır
+    console.error('❌ PostgreSQL bağlantı veya tablo oluşturma hatası:', err);
+    process.exit(1);
   });
 
 // Middleware: JSON verilerini işlemek için
 app.use(express.json());
 app.use(cors());
 
-// Oturum yönetimi
+// **PostgreSQL tabanlı oturum yönetimi**
 app.use(session({
-  secret: 'gizli_anahtar', // Bu anahtar gizli tutulmalı, .env dosyasına alınabilir
+  store: new pgSession({
+    pool: client, // PostgreSQL bağlantısını kullan
+    tableName: 'session', // Oturumları saklamak için tablo
+  }),
+  secret: process.env.SESSION_SECRET || 'gizli_anahtar', // .env içine koyulmalı
   resave: false,
-  saveUninitialized: false, // Oturum başlatılmadan önce kaydedilmesin
+  saveUninitialized: false,
   cookie: {
-    secure: false, // HTTPS kullanıyorsan true yap
+    secure: process.env.NODE_ENV === 'production', // HTTPS varsa true yap
     maxAge: 1000 * 60 * 60 * 24, // Oturum süresi: 1 gün
-    httpOnly: true // Çerezlerin client-side script'lerden erişilememesini sağlar
+    httpOnly: true
   }
 }));
 
 // Statik dosyaları sun (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Ana route
+// Ana sayfa
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -85,7 +96,7 @@ app.post('/api/login', async (req, res) => {
       const user = result.rows[0];
       const validPassword = await bcrypt.compare(password, user.password);
       if (validPassword) {
-        req.session.user = user; // Oturumu başlat
+        req.session.user = { id: user.id, username: user.username, role: user.role }; // Oturum başlat
         res.json({ role: user.role });
       } else {
         res.status(401).json({ error: 'Geçersiz şifre' });
@@ -94,7 +105,7 @@ app.post('/api/login', async (req, res) => {
       res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
   } catch (err) {
-    console.error('Giriş yapılırken hata:', err);
+    console.error('❌ Giriş yapılırken hata:', err);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
@@ -105,7 +116,7 @@ app.get('/api/parcels', async (req, res) => {
     const result = await client.query('SELECT * FROM parcels');
     res.json(result.rows);
   } catch (err) {
-    console.error('Parsel verileri getirilirken hata:', err);
+    console.error('❌ Parsel verileri getirilirken hata:', err);
     res.status(500).json({ error: 'Veritabanı hatası' });
   }
 });
@@ -125,45 +136,7 @@ app.post('/api/parcels', async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Parsel eklenirken hata:', err);
-    res.status(400).json({ error: 'Veritabanı hatası' });
-  }
-});
-
-// Parsel güncelle (Sadece admin)
-app.put('/api/parcels/:id', async (req, res) => {
-  if (req.session.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Yetkisiz erişim' });
-  }
-
-  const id = req.params.id;
-  const { parsel_no, koordinatlar, bitki, sulama, proje_sahibi, projedurumu, proje_tarihi, Arazi_Egimi } = req.body;
-
-  try {
-    const result = await client.query(
-      'UPDATE parcels SET parsel_no = $1, koordinatlar = $2, bitki = $3, sulama = $4, proje_sahibi = $5, projedurumu = $6, proje_tarihi = $7, Arazi_Egimi = $8 WHERE id = $9 RETURNING *',
-      [parsel_no, koordinatlar, bitki, sulama, proje_sahibi, projedurumu, proje_tarihi, Arazi_Egimi, id]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Parsel güncellenirken hata:', err);
-    res.status(400).json({ error: 'Veritabanı hatası' });
-  }
-});
-
-// Parsel sil (Sadece admin)
-app.delete('/api/parcels/:id', async (req, res) => {
-  if (req.session.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Yetkisiz erişim' });
-  }
-
-  const id = req.params.id;
-
-  try {
-    await client.query('DELETE FROM parcels WHERE id = $1', [id]);
-    res.status(204).send();
-  } catch (err) {
-    console.error('Parsel silinirken hata:', err);
+    console.error('❌ Parsel eklenirken hata:', err);
     res.status(400).json({ error: 'Veritabanı hatası' });
   }
 });
@@ -171,42 +144,38 @@ app.delete('/api/parcels/:id', async (req, res) => {
 // Kullanıcı hesaplarını oluştur
 const createInitialUsers = async () => {
   try {
-    // Admin hesabı
-    const adminUsername = 'admin';
-    const adminPassword = await bcrypt.hash('tbae321', 10); // Şifreyi hash'le
+    const adminPassword = await bcrypt.hash('tbae321', 10);
     await client.query(
       'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) ON CONFLICT (username) DO NOTHING',
-      [adminUsername, adminPassword, 'admin']
+      ['admin', adminPassword, 'admin']
     );
 
-    // User hesabı
-    const userUsername = 'users';
-    const userPassword = await bcrypt.hash('tbae123', 10); // Şifreyi hash'le
+    const userPassword = await bcrypt.hash('tbae123', 10);
     await client.query(
       'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) ON CONFLICT (username) DO NOTHING',
-      [userUsername, userPassword, 'user']
+      ['users', userPassword, 'user']
     );
 
-    console.log('Admin ve user hesapları oluşturuldu veya zaten var.');
+    console.log('✅ Admin ve user hesapları oluşturuldu veya zaten var.');
   } catch (err) {
-    console.error('Kullanıcı hesapları oluşturulurken hata:', err);
+    console.error('❌ Kullanıcı hesapları oluşturulurken hata:', err);
   }
 };
 
 // Sunucuyu başlat
 app.listen(port, () => {
-  console.log(`Sunucu http://localhost:${port} adresinde çalışıyor...`);
+  console.log(`🚀 Sunucu http://localhost:${port} adresinde çalışıyor...`);
 });
 
-// Uygulama sonlandırıldığında PostgreSQL bağlantısını kapat
+// Uygulama kapanırken PostgreSQL bağlantısını kapat
 process.on('SIGINT', () => {
   client.end()
     .then(() => {
-      console.log('PostgreSQL bağlantısı kapatıldı.');
+      console.log('📴 PostgreSQL bağlantısı kapatıldı.');
       process.exit(0);
     })
     .catch(err => {
-      console.error('PostgreSQL bağlantısı kapatılırken hata:', err);
+      console.error('❌ PostgreSQL bağlantısı kapatılırken hata:', err);
       process.exit(1);
     });
 });
