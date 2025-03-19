@@ -8,6 +8,37 @@ body, html {
     height: 100vh; /* Haritayı tam ekran kaplat */
 }
 
+/* Giriş Formu */
+#login-form {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 20px;
+    border: 1px solid #ccc;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+#login-form input {
+    display: block;
+    margin: 10px 0;
+    padding: 8px;
+    width: 200px;
+}
+
+#login-form button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+#login-form button:hover {
+    background-color: #0056b3;
+}
+
 /* Talimatları tamamen gizle */
 .leaflet-draw-tooltip {
     display: none !important;
