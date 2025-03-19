@@ -3,19 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parsel Kaydetme</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <title>Parsel Bilgi Sistemi v2</title>
+    <link rel="icon" href="data:,"> <!-- Favicon hatasını engelle -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Leaflet CSS ve JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw (Çizim Eklentisi) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- FontAwesome (Simgeler için) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Harita tam ekran kaplasın */
+        body, html { margin: 0; padding: 0; height: 100%; }
+        #map { height: 100vh; width: 100vw; }
+    </style>
 </head>
 <body>
-    <div id="map" style="height: 600px;"></div>
+
+    <div id="map"></div>
 
     <script>
-        let map = L.map('map').setView([39.92077, 32.85411], 6); // Türkiye merkezli harita
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        // 📌 **HARİTA OLUŞTURMA**
+        let map = L.map('map', {
+            center: [39.92077, 32.85411], // 📍 Türkiye merkezli başlangıç noktası
+            zoom: 6, 
+            minZoom: 4,
+            maxZoom: 18
+        });
 
+        // 📌 **Uydu Harita Katmanı**
+        let satelliteLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        // 📌 **Çizim Kontrolleri (Polygon, Çizgi, Silgi vb.)**
         let drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
 
@@ -23,20 +50,22 @@
             edit: { featureGroup: drawnItems },
             draw: {
                 polygon: true,
-                marker: false,
-                circle: false,
                 rectangle: false,
-                polyline: false
+                circle: false,
+                polyline: false,
+                marker: false
             }
         });
         map.addControl(drawControl);
 
+        // 📌 **Çizim Tamamlandığında**
         map.on('draw:created', function (event) {
             let layer = event.layer;
             drawnItems.addLayer(layer);
 
-            let coordinates = layer.getLatLngs()[0].map(coord => [coord.lat, coord.lng]); // Koordinatları al
+            let coordinates = layer.getLatLngs()[0].map(coord => [coord.lat, coord.lng]); // 📌 Koordinatları al
 
+            // 📌 Parsel Bilgi Formunu Aç
             let popupContent = `
                 <b>Parsel Bilgisi</b><br>
                 <label>Parsel No:</label> <input type="text" id="parsel_no"><br>
@@ -52,6 +81,7 @@
             layer.bindPopup(popupContent).openPopup();
         });
 
+        // 📌 **Parseli Kaydetme Fonksiyonu**
         function saveParsel(coordinates) {
             let parsel_no = document.getElementById("parsel_no").value;
             let bitki = document.getElementById("bitki").value;
@@ -63,7 +93,7 @@
 
             let data = {
                 parsel_no,
-                koordinatlar: JSON.stringify(coordinates), // Koordinatları JSON formatında kaydediyoruz
+                koordinatlar: JSON.stringify(coordinates), // 📌 Koordinatları JSON formatına çeviriyoruz
                 bitki,
                 sulama,
                 proje_sahibi,
@@ -86,6 +116,29 @@
             })
             .catch(error => console.error("Hata:", error));
         }
+
+        // 📌 **Kaydedilen Parselleri Haritada Göster**
+        function loadParcels() {
+            fetch('/api/parcels')
+                .then(response => response.json())
+                .then(parcels => {
+                    parcels.forEach(parsel => {
+                        let coordinates = JSON.parse(parsel.koordinatlar);
+                        L.polygon(coordinates, { color: 'blue' }).addTo(map)
+                            .bindPopup(`<b>Parsel No:</b> ${parsel.parsel_no}<br>
+                                        <b>Bitki:</b> ${parsel.bitki}<br>
+                                        <b>Sulama:</b> ${parsel.sulama}<br>
+                                        <b>Proje Sahibi:</b> ${parsel.proje_sahibi}<br>
+                                        <b>Proje Durumu:</b> ${parsel.projedurumu}<br>
+                                        <b>Proje Tarihi:</b> ${parsel.proje_tarihi}<br>
+                                        <b>Arazi Eğimi:</b> ${parsel.Arazi_Egimi}`);
+                    });
+                });
+        }
+        
+        // Sayfa yüklendiğinde verileri getir
+        loadParcels();
     </script>
+
 </body>
 </html>
